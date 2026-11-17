@@ -173,7 +173,26 @@ fun StudioScreen() {
                     onValueChange = { prompt = it },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
-                    placeholder = { Text("Örn: Minik bir kedinin uzayda komik macerası...") },
+                    maxLines = 6,
+                    textStyle = TextStyle(
+                        fontSize = 15.sp,
+                        lineHeight = 21.sp,
+                        color = Color(0xFF211D2B)
+                    ),
+                    placeholder = {
+                        Text(
+                            "Örn: Minik bir kedinin uzayda komik macerası...",
+                            color = Color(0xFF77717F),
+                            fontSize = 15.sp
+                        )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color(0xFF211D2B),
+                        unfocusedTextColor = Color(0xFF211D2B),
+                        cursorColor = Color(0xFF7657F6),
+                        focusedBorderColor = Color(0xFF7657F6),
+                        unfocusedBorderColor = Color(0xFF8B8496)
+                    ),
                     shape = RoundedCornerShape(16.dp)
                 )
 
