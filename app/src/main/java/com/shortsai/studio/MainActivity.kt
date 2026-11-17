@@ -55,10 +55,16 @@ fun StudioScreen() {
     var isExporting by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf("") }
     var soundtrackUri by remember { mutableStateOf<Uri?>(null) }
+    var soundEffectUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
     val soundtrackPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         soundtrackUri = uri
         if (uri != null) runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    }
+
+    val effectsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        soundEffectUris = uris
+        uris.forEach { uri -> runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
     }
 
     val saveLauncher = rememberLauncherForActivityResult(
@@ -244,6 +250,11 @@ fun StudioScreen() {
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (soundtrackUri == null) "♫ Telefonda müzik / ses dosyası seç" else "♫ Ses dosyası seçildi — değiştirmek için dokun") }
 
+                    OutlinedButton(
+                        onClick = { effectsPicker.launch(arrayOf("audio/*")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (soundEffectUris.isEmpty()) "♫ Ses efektleri seç (birden fazla)" else "♫ ${soundEffectUris.size} ses efekti seçildi — değiştirmek için dokun") }
+
                     scenes.forEachIndexed { index, scene ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -322,7 +333,7 @@ fun StudioScreen() {
                                 context,
                                 scenes.map { VideoFrameSource(it.imageUrl, it.subtitle) },
                                 duration.filter { it.isDigit() }.toIntOrNull() ?: 45,
-                                soundtrackUri
+                                listOfNotNull(soundtrackUri) + soundEffectUris
                             ) { result ->
                                 Handler(Looper.getMainLooper()).post {
                                     isExporting = false
@@ -359,7 +370,7 @@ fun StudioScreen() {
                     ) { Text("Tüm hikâyeyi Türkçe dinle") }
 
                     Text(
-                        "MP4 videoya seçtiğin müzik veya ses dosyası eklenir. Türkçe TTS seslendirmesi şimdilik uygulama içi önizlemedir. Sahne görselleri hareket efektiyle videoya dönüştürülür; gerçek AI video üretimi için harici bir video servisi gerekir.",
+                        "MP4 videoya seçtiğin müzik ve ses efektleri ayrı ses kanalları olarak eklenir. Türkçe TTS seslendirmesi şimdilik uygulama içi önizlemedir. Sahne görselleri hareket efektiyle videoya dönüştürülür; gerçek AI video üretimi için harici bir video servisi gerekir.",
                         color = Color.Gray,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
