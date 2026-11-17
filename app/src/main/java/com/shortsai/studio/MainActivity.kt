@@ -54,6 +54,12 @@ fun StudioScreen() {
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var isExporting by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf("") }
+    var soundtrackUri by remember { mutableStateOf<Uri?>(null) }
+
+    val soundtrackPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        soundtrackUri = uri
+        if (uri != null) runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    }
 
     val saveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
@@ -233,6 +239,11 @@ fun StudioScreen() {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF201B3B))
                     ) { Text("✦ 5 sahnenin görsellerini üret") }
 
+                    OutlinedButton(
+                        onClick = { soundtrackPicker.launch(arrayOf("audio/*")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (soundtrackUri == null) "♫ Telefonda müzik / ses dosyası seç" else "♫ Ses dosyası seçildi — değiştirmek için dokun") }
+
                     scenes.forEachIndexed { index, scene ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -310,7 +321,8 @@ fun StudioScreen() {
                             SlideshowExporter.export(
                                 context,
                                 scenes.map { VideoFrameSource(it.imageUrl, it.subtitle) },
-                                duration.filter { it.isDigit() }.toIntOrNull() ?: 45
+                                duration.filter { it.isDigit() }.toIntOrNull() ?: 45,
+                                soundtrackUri
                             ) { result ->
                                 Handler(Looper.getMainLooper()).post {
                                     isExporting = false
@@ -347,7 +359,7 @@ fun StudioScreen() {
                     ) { Text("Tüm hikâyeyi Türkçe dinle") }
 
                     Text(
-                        "Bu sürüm sahne görsellerini kullanarak 9:16 MP4 slayt video oluşturur ve altyazıları videoya işler. Türkçe seslendirme şu anda uygulama içinde önizleme olarak dinlenir; MP4 dosyasına henüz eklenmez. Gerçek AI hareketli sahne üretimi ve arka plan müziği bu sürümde henüz yoktur.",
+                        "MP4 videoya seçtiğin müzik veya ses dosyası eklenir. Türkçe TTS seslendirmesi şimdilik uygulama içi önizlemedir. Sahne görselleri hareket efektiyle videoya dönüştürülür; gerçek AI video üretimi için harici bir video servisi gerekir.",
                         color = Color.Gray,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
