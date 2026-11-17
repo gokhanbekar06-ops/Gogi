@@ -53,6 +53,8 @@ fun StudioScreen() {
     var scenes by remember { mutableStateOf(listOf<StoryScene>()) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var isExporting by remember { mutableStateOf(false) }
+    var isGeneratingAiVideo by remember { mutableStateOf(false) }
+    var aiVideoStatus by remember { mutableStateOf("") }
     var exportStatus by remember { mutableStateOf("") }
     var soundtrackUri by remember { mutableStateOf<Uri?>(null) }
     var soundEffectUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
@@ -226,6 +228,38 @@ fun StudioScreen() {
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7657F6))
                 ) {
                     Text("✦ Hikâye ve 5 sahne oluştur")
+                }
+
+                Button(
+                    onClick = {
+                        isGeneratingAiVideo = true
+                        aiVideoStatus = "İstek hazırlanıyor..."
+                        AgnesVideoClient.generateAndSave(
+                            context,
+                            prompt.trim().ifBlank { "A cute little cat discovers a magical glowing star in a colorful fantasy world, cinematic camera movement, expressive character, vertical 9:16 video." },
+                            8,
+                            onUpdate = { message ->
+                                Handler(Looper.getMainLooper()).post { aiVideoStatus = message }
+                            },
+                            onComplete = { result ->
+                                Handler(Looper.getMainLooper()).post {
+                                    isGeneratingAiVideo = false
+                                    aiVideoStatus = result.fold(
+                                        onSuccess = { "Gerçek AI videosu Galeri'ye kaydedildi." },
+                                        onFailure = { "AI video hatası: " + (it.message ?: "Bilinmeyen hata") }
+                                    )
+                                }
+                            }
+                        )
+                    },
+                    enabled = !isGeneratingAiVideo,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF201B3B))
+                ) {
+                    Text(if (isGeneratingAiVideo) "AI video oluşturuluyor..." else "🎬 Gerçek AI hareketli video üret")
+                }
+                if (aiVideoStatus.isNotBlank()) {
+                    Text(aiVideoStatus, color = Color(0xFF3D315F), fontSize = 13.sp)
                 }
 
                 if (scenes.isNotEmpty()) {
