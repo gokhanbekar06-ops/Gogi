@@ -347,7 +347,7 @@ fun StudioScreen() {
                     ) { Text("Tüm hikâyeyi Türkçe dinle") }
 
                     Text(
-                        "Not: Bu sürüm düzenlenebilir senaryo, altyazı metni ve görsel promptları hazırlar. Gerçek AI video üretimi için bir video üretim servisi bağlantısı; MP4 oluşturmak için ayrıca video işleme modülü gerekir. Bunlar henüz etkin değil.",
+                        "Bu sürüm sahne görsellerini kullanarak 9:16 MP4 slayt video oluşturur ve altyazıları videoya işler. Türkçe seslendirme şu anda uygulama içinde önizleme olarak dinlenir; MP4 dosyasına henüz eklenmez. Gerçek AI hareketli sahne üretimi ve arka plan müziği bu sürümde henüz yoktur.",
                         color = Color.Gray,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
