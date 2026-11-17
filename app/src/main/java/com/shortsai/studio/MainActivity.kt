@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -185,7 +186,7 @@ fun StudioScreen() {
                 }
 
                 if (scenes.isNotEmpty()) {
-                    Text("Hikâye taslağı", fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    Text("Hikâye taslağı", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                     Text(storyTitle, color = Color(0xFF7657F6), fontWeight = FontWeight.Bold)
                     Text("Tarz: $style  •  Süre: $duration  •  Dikey 9:16", color = Color.Gray)
 
@@ -195,27 +196,29 @@ fun StudioScreen() {
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("SAHNE ${index + 1} — ${scene.title}", fontWeight = FontWeight.Bold, color = Color(0xFF7657F6))
-                                Text("Seslendirme", fontWeight = FontWeight.SemiBold)
+                                Text("SAHNE ${index + 1} — ${scene.title}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7657F6))
+                                Text("Seslendirme", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 OutlinedTextField(
                                     value = scene.narration,
                                     onValueChange = { updated ->
                                         scenes = scenes.toMutableList().also { it[index] = scene.copy(narration = updated) }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    minLines = 2
+                                    minLines = 2,
+                                    textStyle = TextStyle(fontSize = 14.sp, lineHeight = 19.sp)
                                 )
-                                Text("Ekran altyazısı", fontWeight = FontWeight.SemiBold)
+                                Text("Ekran altyazısı", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 OutlinedTextField(
                                     value = scene.subtitle,
                                     onValueChange = { updated ->
                                         scenes = scenes.toMutableList().also { it[index] = scene.copy(subtitle = updated) }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    minLines = 1
+                                    minLines = 1,
+                                    textStyle = TextStyle(fontSize = 14.sp, lineHeight = 18.sp)
                                 )
-                                Text("Görsel üretim promptu", fontWeight = FontWeight.SemiBold)
-                                Text(scene.visualPrompt, fontSize = 13.sp, color = Color.DarkGray, lineHeight = 18.sp)
+                                Text("Görsel üretim promptu", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(scene.visualPrompt, fontSize = 12.sp, color = Color.DarkGray, lineHeight = 16.sp)
                                 OutlinedButton(onClick = {
                                     tts?.language = Locale("tr", "TR")
                                     tts?.speak(scene.narration, TextToSpeech.QUEUE_FLUSH, null, "scene_$index")
