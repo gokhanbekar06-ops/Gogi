@@ -29,7 +29,7 @@ object SlideshowExporter {
         context: Context,
         scenes: List<VideoFrameSource>,
         durationSeconds: Int,
-        audioUri: Uri? = null,
+        audioUris: List<Uri> = emptyList(),
         onComplete: (Result<Uri>) -> Unit
     ) {
         thread(name = "shorts-mp4-export") {
@@ -40,9 +40,9 @@ object SlideshowExporter {
                 val outputDir = File(context.cacheDir, "shorts-export").apply { mkdirs() }
                 val tempFile = File(outputDir, "shorts-${System.currentTimeMillis()}.mp4")
                 encodeVideo(tempFile, scenes, bitmaps, durationSeconds)
-                val finalFile = if (audioUri != null) {
+                val finalFile = if (audioUris.isNotEmpty()) {
                     File(outputDir, "shorts-audio-${System.currentTimeMillis()}.mp4").also {
-                        muxAudioTrack(context, tempFile, audioUri, it)
+                        muxAudioTracks(context, tempFile, audioUris, it)
                         tempFile.delete()
                     }
                 } else tempFile
@@ -190,38 +190,39 @@ object SlideshowExporter {
     }
 
 
-    private fun muxAudioTrack(context: Context, videoFile: File, audioUri: Uri, outputFile: File) {
+    private fun muxAudioTracks(context: Context, videoFile: File, audioUris: List<Uri>, outputFile: File) {
         val videoExtractor = MediaExtractor()
-        val audioExtractor = MediaExtractor()
+        val audioExtractors = mutableListOf<MediaExtractor>()
         var muxer: MediaMuxer? = null
+        var started = false
         try {
             videoExtractor.setDataSource(videoFile.absolutePath)
-            audioExtractor.setDataSource(context, audioUri, null)
             muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-            var videoTrack = -1
-            var audioTrack = -1
-            for (i in 0 until videoExtractor.trackCount) {
-                val format = videoExtractor.getTrackFormat(i)
-                if (format.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true) {
-                    videoExtractor.selectTrack(i)
-                    videoTrack = muxer.addTrack(format)
-                    break
+            val videoIndex = (0 until videoExtractor.trackCount).firstOrNull { index ->
+                videoExtractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
+            } ?: error("Videonun görüntü kanalı bulunamadı.")
+            videoExtractor.selectTrack(videoIndex)
+            val videoTrack = muxer.addTrack(videoExtractor.getTrackFormat(videoIndex))
+            val audioTracks = audioUris.map { uri ->
+                val extractor = MediaExtractor()
+                try {
+                    extractor.setDataSource(context, uri, null)
+                    val index = (0 until extractor.trackCount).firstOrNull { track ->
+                        extractor.getTrackFormat(track).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+                    } ?: error("Seçilen dosyada ses kanalı bulunamadı.")
+                    extractor.selectTrack(index)
+                    audioExtractors.add(extractor)
+                    extractor to muxer.addTrack(extractor.getTrackFormat(index))
+                } catch (error: Exception) {
+                    extractor.release()
+                    throw error
                 }
             }
-            for (i in 0 until audioExtractor.trackCount) {
-                val format = audioExtractor.getTrackFormat(i)
-                if (format.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
-                    audioExtractor.selectTrack(i)
-                    audioTrack = muxer.addTrack(format)
-                    break
-                }
-            }
-            check(videoTrack >= 0) { "Videonun görüntü kanalı bulunamadı." }
-            check(audioTrack >= 0) { "Seçilen dosyada ses kanalı bulunamadı." }
             muxer.start()
-            val buffer = java.nio.ByteBuffer.allocate(2 * 1024 * 1024)
+            started = true
             val info = MediaCodec.BufferInfo()
-            fun copySamples(extractor: MediaExtractor, destinationTrack: Int) {
+            fun copy(extractor: MediaExtractor, track: Int) {
+                val buffer = java.nio.ByteBuffer.allocate(2 * 1024 * 1024)
                 while (true) {
                     buffer.clear()
                     val size = extractor.readSampleData(buffer, 0)
@@ -230,17 +231,17 @@ object SlideshowExporter {
                     info.size = size
                     info.presentationTimeUs = extractor.sampleTime
                     info.flags = extractor.sampleFlags
-                    muxer!!.writeSampleData(destinationTrack, buffer, info)
+                    muxer!!.writeSampleData(track, buffer, info)
                     extractor.advance()
                 }
             }
-            copySamples(videoExtractor, videoTrack)
-            copySamples(audioExtractor, audioTrack)
+            copy(videoExtractor, videoTrack)
+            audioTracks.forEach { (extractor, track) -> copy(extractor, track) }
         } finally {
-            runCatching { muxer?.stop() }
+            runCatching { if (started) muxer?.stop() }
             runCatching { muxer?.release() }
             runCatching { videoExtractor.release() }
-            runCatching { audioExtractor.release() }
+            audioExtractors.forEach { runCatching { it.release() } }
         }
     }
 
