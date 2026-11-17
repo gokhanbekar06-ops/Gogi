@@ -45,9 +45,23 @@ object AgnesVideoClient {
     }
 
     private fun createClip(prompt: String, seconds: Int, onUpdate: (String) -> Unit): File {
-        val create = requestJson("POST", "$WORKER_URL/generate", JSONObject().put("prompt", prompt).put("seconds", seconds.coerceIn(4, 12)))
-        val id = create.optString("video_id").ifBlank { create.optString("id") }.ifBlank { create.optString("task_id") }
-        require(id.isNotBlank()) { "Video görevi kimliği alınamadı: $create" }
+        val createBody = JSONObject().put("prompt", prompt).put("seconds", seconds.coerceIn(4, 12))
+        var create: JSONObject? = null
+        for (requestAttempt in 1..3) {
+            try {
+                create = requestJson("POST", "$WORKER_URL/generate", createBody)
+                break
+            } catch (error: Exception) {
+                val message = error.message.orEmpty()
+                val rateLimited = message.contains("429") || message.contains("1015") || message.contains("istek sınırına")
+                if (!rateLimited || requestAttempt == 3) throw error
+                onUpdate("Agnes istek sınırı: 65 saniye bekleniyor (deneme $requestAttempt/3)...")
+                Thread.sleep(65_000)
+            }
+        }
+        val createResponse = create ?: error("Video isteği oluşturulamadı.")
+        val id = createResponse.optString("video_id").ifBlank { createResponse.optString("id") }.ifBlank { createResponse.optString("task_id") }
+        require(id.isNotBlank()) { "Video görevi kimliği alınamadı: $createResponse" }
         var videoUrl = ""
         for (attempt in 1..120) {
             Thread.sleep(5000)
