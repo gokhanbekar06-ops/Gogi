@@ -1,9 +1,12 @@
 package com.shortsai.studio
 
+import android.content.Intent
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,10 +15,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+
+private data class StoryScene(
+    val title: String,
+    val narration: String,
+    val visualPrompt: String,
+    val subtitle: String
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,75 +38,215 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudioScreen() {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var prompt by remember { mutableStateOf("") }
     var style by remember { mutableStateOf("3D çizgi film") }
-    var story by remember { mutableStateOf("") }
-    var scenes by remember { mutableStateOf(listOf<String>()) }
+    var duration by remember { mutableStateOf("45 saniye") }
+    var storyTitle by remember { mutableStateOf("") }
+    var scenes by remember { mutableStateOf(listOf<StoryScene>()) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
 
-    DisposableEffect(Unit) {
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null && scenes.isNotEmpty()) {
+            val text = buildString {
+                appendLine("SHORTS AI STUDIO - HİKÂYE TASLAĞI")
+                appendLine("Başlık: $storyTitle")
+                appendLine("Tarz: $style | Süre: $duration | Format: Dikey 9:16")
+                appendLine()
+                scenes.forEachIndexed { index, scene ->
+                    appendLine("SAHNE ${index + 1}: ${scene.title}")
+                    appendLine("Seslendirme: ${scene.narration}")
+                    appendLine("Altyazı: ${scene.subtitle}")
+                    appendLine("Görsel promptu: ${scene.visualPrompt}")
+                    appendLine()
+                }
+            }
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(text) }
+            }
+        }
+    }
+
+    DisposableEffect(context) {
         val engine = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) tts?.language = Locale("tr", "TR")
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("tr", "TR")
+            }
         }
         tts = engine
-        onDispose { engine.stop(); engine.shutdown(); tts = null }
+        onDispose {
+            engine.stop()
+            engine.shutdown()
+            tts = null
+        }
+    }
+
+    fun createStoryboard() {
+        val idea = prompt.trim().ifBlank { "Minik bir kedinin uzayda kayıp bir yıldızı bulma macerası" }
+        storyTitle = idea.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("tr", "TR")) else it.toString() }
+        val visualStyle = if (style == "Gerçekçi") {
+            "Photorealistic cinematic, detailed lighting, realistic textures"
+        } else {
+            "High quality colorful 3D animated family film, expressive cute characters"
+        }
+        scenes = listOf(
+            StoryScene(
+                "Merak uyandıran açılış",
+                "Bir dakika! Böyle bir şey daha önce hiç görülmemişti...",
+                "$visualStyle. Dikey 9:16 yakın plan, $idea. İlk kare çok dikkat çekici.",
+                "Böyle bir şey daha önce hiç görülmemişti!"
+            ),
+            StoryScene(
+                "Beklenmedik sorun",
+                "Tam her şey yolundayken, kahramanımız büyük bir sürprizle karşılaştı.",
+                "$visualStyle. $idea sırasında beklenmedik komik bir sorun ortaya çıkıyor. Dikey 9:16.",
+                "Ama işler bir anda karıştı!"
+            ),
+            StoryScene(
+                "İpucunu bulma",
+                "Etrafına dikkatlice baktı ve ona yol gösterecek küçük bir ipucu buldu.",
+                "$visualStyle. Kahraman önemli bir ipucu keşfediyor, yüzünde şaşkın ve sevimli ifade. Dikey 9:16.",
+                "Derken küçük bir ipucu buldu."
+            ),
+            StoryScene(
+                "Cesur hamle",
+                "Biraz korksa da pes etmedi. Derin bir nefes alıp harekete geçti!",
+                "$visualStyle. Kahraman hızlı ve eğlenceli bir aksiyon anında, dinamik kamera. Dikey 9:16.",
+                "Pes etmek yok!"
+            ),
+            StoryScene(
+                "Şaşırtıcı final",
+                "Ve sonunda öyle komik bir şey oldu ki herkes kahkahalara boğuldu!",
+                "$visualStyle. $idea için şaşırtıcı, neşeli, aile dostu final. Parlak sinematik ışık, dikey 9:16.",
+                "Sonu hiç tahmin ettiğin gibi değil!"
+            )
+        )
     }
 
     MaterialTheme {
-        Scaffold(topBar = { TopAppBar(title = { Text("SHORTS AI STUDIO", fontWeight = FontWeight.Black) }) },
-            containerColor = Color(0xFFF7F5FC)) { inset ->
-            Column(Modifier.padding(inset).fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF201B3B)), shape = RoundedCornerShape(22.dp)) {
-                    Column(Modifier.padding(20.dp)) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("SHORTS AI STUDIO", fontWeight = FontWeight.Black) },
+                    actions = {
+                        Text("9:16", modifier = Modifier.padding(end = 18.dp), color = Color(0xFF7657F6), fontWeight = FontWeight.Bold)
+                    }
+                )
+            },
+            containerColor = Color(0xFFF7F5FC)
+        ) { inset ->
+            Column(
+                Modifier.padding(inset).fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF201B3B)),
+                    shape = RoundedCornerShape(22.dp)
+                ) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Fikrini Shorts'a dönüştür", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                        Text("Türkçe hikâye • Sahne planı • Sesli önizleme", color = Color(0xFFE0D9FF))
+                        Text("Türkçe senaryo • 5 sahne • Altyazı • Görsel promptları • Sesli önizleme",
+                            color = Color(0xFFE0D9FF), lineHeight = 22.sp)
                     }
                 }
+
                 Text("Video tarzı", fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("3D çizgi film", "Gerçekçi").forEach { option ->
                         FilterChip(selected = style == option, onClick = { style = option }, label = { Text(option) })
                     }
                 }
+
+                Text("Hedef video süresi", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("30 saniye", "45 saniye", "60 saniye").forEach { option ->
+                        FilterChip(selected = duration == option, onClick = { duration = option }, label = { Text(option) })
+                    }
+                }
+
                 Text("Video fikrin veya promptun", fontWeight = FontWeight.Bold)
-                OutlinedTextField(value = prompt, onValueChange = { prompt = it }, modifier = Modifier.fillMaxWidth(),
-                    minLines = 3, placeholder = { Text("Örn: Minik bir kedinin uzayda komik macerası...") },
-                    shape = RoundedCornerShape(16.dp))
-                Button(onClick = {
-                    val idea = prompt.trim().ifBlank { "Minik bir kedinin kayıp yıldızı bulma macerası" }
-                    story = "Bir gün $idea. Kahramanımız beklenmedik bir sorunla karşılaştı. Önce korktu ama küçük bir ipucu buldu. Cesaretini toplayıp harekete geçti. Herkes tam umudunu kaybetmişken şaşırtıcı bir çözüm ortaya çıktı. Macera mutlu ve komik bir sonla bitti!"
-                    scenes = listOf("İlk 3 saniye: Merak uyandıran açılış",
-                        "Sorun: Kahramanın karşılaştığı beklenmedik olay",
-                        "Keşif: Çözüm için bulunan küçük ipucu",
-                        "Aksiyon: Kahramanın cesur hamlesi",
-                        "Final: Şaşırtıcı ve aile dostu son")
-                }, modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7657F6))) {
-                    Text("✦ Hikâye ve sahneleri oluştur")
+                OutlinedTextField(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    placeholder = { Text("Örn: Minik bir kedinin uzayda komik macerası...") },
+                    shape = RoundedCornerShape(16.dp)
+                )
+
+                Button(
+                    onClick = { createStoryboard() },
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7657F6))
+                ) {
+                    Text("✦ Hikâye ve 5 sahne oluştur")
                 }
-                if (story.isNotBlank()) {
-                    Text("Hikâye taslağı", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text("Tarz: $style", color = Color(0xFF7657F6), fontWeight = FontWeight.Bold)
-                    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(story, lineHeight = 24.sp)
-                            OutlinedButton(onClick = {
-                                tts?.language = Locale("tr", "TR")
-                                tts?.speak(story, TextToSpeech.QUEUE_FLUSH, null, "story")
-                            }) { Text("Türkçe sesli dinle") }
+
+                if (scenes.isNotEmpty()) {
+                    Text("Hikâye taslağı", fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    Text(storyTitle, color = Color(0xFF7657F6), fontWeight = FontWeight.Bold)
+                    Text("Tarz: $style  •  Süre: $duration  •  Dikey 9:16", color = Color.Gray)
+
+                    scenes.forEachIndexed { index, scene ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("SAHNE ${index + 1} — ${scene.title}", fontWeight = FontWeight.Bold, color = Color(0xFF7657F6))
+                                Text("Seslendirme", fontWeight = FontWeight.SemiBold)
+                                OutlinedTextField(
+                                    value = scene.narration,
+                                    onValueChange = { updated ->
+                                        scenes = scenes.toMutableList().also { it[index] = scene.copy(narration = updated) }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 2
+                                )
+                                Text("Ekran altyazısı", fontWeight = FontWeight.SemiBold)
+                                OutlinedTextField(
+                                    value = scene.subtitle,
+                                    onValueChange = { updated ->
+                                        scenes = scenes.toMutableList().also { it[index] = scene.copy(subtitle = updated) }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 1
+                                )
+                                Text("Görsel üretim promptu", fontWeight = FontWeight.SemiBold)
+                                Text(scene.visualPrompt, fontSize = 13.sp, color = Color.DarkGray, lineHeight = 18.sp)
+                                OutlinedButton(onClick = {
+                                    tts?.language = Locale("tr", "TR")
+                                    tts?.speak(scene.narration, TextToSpeech.QUEUE_FLUSH, null, "scene_$index")
+                                }) { Text("▶ Bu sahneyi seslendir") }
+                            }
                         }
                     }
-                    Text("Sahne planı", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    scenes.forEachIndexed { i, scene ->
-                        Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                            Text((i + 1).toString() + ". " + scene, Modifier.padding(14.dp))
-                        }
-                    }
-                    Text("Bu ilk sürüm hikâye ve sahne taslağı oluşturur. Yapay zekâ video üretimi ve MP4 dışa aktarma sonraki geliştirme aşamasıdır.",
-                        color = Color.Gray, fontSize = 12.sp)
+
+                    Button(
+                        onClick = { saveLauncher.launch("shorts_ai_studio_hikaye.txt") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF201B3B))
+                    ) { Text("Hikâye ve sahneleri telefona kaydet") }
+
+                    OutlinedButton(
+                        onClick = {
+                            val allText = scenes.joinToString(" ") { it.narration }
+                            tts?.language = Locale("tr", "TR")
+                            tts?.speak(allText, TextToSpeech.QUEUE_FLUSH, null, "full_story")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Tüm hikâyeyi Türkçe dinle") }
+
+                    Text(
+                        "Not: Bu sürüm düzenlenebilir senaryo, altyazı metni ve görsel promptları hazırlar. Gerçek AI video üretimi için bir video üretim servisi bağlantısı; MP4 oluşturmak için ayrıca video işleme modülü gerekir. Bunlar henüz etkin değil.",
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
                 }
+                Spacer(Modifier.height(18.dp))
             }
         }
     }
