@@ -87,7 +87,7 @@ object AgnesVideoClient {
             val outputTracks = sourceTracks.map { muxer.addTrack(first.getTrackFormat(it)) }
             muxer.start(); started = true
             val buffer = java.nio.ByteBuffer.allocate(8 * 1024 * 1024)
-            val info = MediaMuxer.BufferInfo()
+            val info = android.media.MediaCodec.BufferInfo()
             var offsetUs = 0L
             readers.forEach { extractor ->
                 val mapping = mutableMapOf<Int, Int>()
