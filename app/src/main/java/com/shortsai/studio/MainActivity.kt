@@ -3,6 +3,8 @@ package com.shortsai.studio
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -50,6 +52,8 @@ fun StudioScreen() {
     var storyTitle by remember { mutableStateOf("") }
     var scenes by remember { mutableStateOf(listOf<StoryScene>()) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var isExporting by remember { mutableStateOf(false) }
+    var exportStatus by remember { mutableStateOf("") }
 
     val saveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
@@ -297,6 +301,34 @@ fun StudioScreen() {
                                 }) { Text("▶ Bu sahneyi seslendir") }
                             }
                         }
+                    }
+
+                    Button(
+                        onClick = {
+                            isExporting = true
+                            exportStatus = "Görseller indiriliyor ve MP4 hazırlanıyor..."
+                            SlideshowExporter.export(
+                                context,
+                                scenes.map { VideoFrameSource(it.imageUrl, it.subtitle) },
+                                duration.filter { it.isDigit() }.toIntOrNull() ?: 45
+                            ) { result ->
+                                Handler(Looper.getMainLooper()).post {
+                                    isExporting = false
+                                    exportStatus = result.fold(
+                                        onSuccess = { "Video Galeri'ye kaydedildi: $it" },
+                                        onFailure = { "Video oluşturulamadı: ${it.message ?: "Bilinmeyen hata"}" }
+                                    )
+                                }
+                            }
+                        },
+                        enabled = !isExporting && scenes.all { it.imageUrl.isNotBlank() },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7657F6))
+                    ) {
+                        Text(if (isExporting) "Video hazırlanıyor..." else "▶ MP4 videoyu oluştur ve Galeri'ye kaydet")
+                    }
+                    if (exportStatus.isNotBlank()) {
+                        Text(exportStatus, color = Color(0xFF3D315F), fontSize = 13.sp)
                     }
 
                     Button(
