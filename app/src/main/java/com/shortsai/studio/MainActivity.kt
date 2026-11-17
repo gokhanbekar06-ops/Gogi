@@ -232,31 +232,34 @@ fun StudioScreen() {
 
                 Button(
                     onClick = {
-                        isGeneratingAiVideo = true
-                        aiVideoStatus = "İstek hazırlanıyor..."
-                        AgnesVideoClient.generateAndSave(
-                            context,
-                            prompt.trim().ifBlank { "A cute little cat discovers a magical glowing star in a colorful fantasy world, cinematic camera movement, expressive character, vertical 9:16 video." },
-                            8,
-                            onUpdate = { message ->
-                                Handler(Looper.getMainLooper()).post { aiVideoStatus = message }
-                            },
-                            onComplete = { result ->
-                                Handler(Looper.getMainLooper()).post {
-                                    isGeneratingAiVideo = false
-                                    aiVideoStatus = result.fold(
-                                        onSuccess = { "Gerçek AI videosu Galeri'ye kaydedildi." },
-                                        onFailure = { "AI video hatası: " + (it.message ?: "Bilinmeyen hata") }
-                                    )
+                        if (scenes.isEmpty()) {
+                            aiVideoStatus = "Önce 'Hikâye ve 5 sahne oluştur' düğmesine dokun."
+                        } else {
+                            isGeneratingAiVideo = true
+                            aiVideoStatus = "5 sahnelik AI video hazırlanıyor..."
+                            val targetSeconds = duration.filter { it.isDigit() }.toIntOrNull() ?: 60
+                            AgnesVideoClient.generateClipsAndSave(
+                                context,
+                                scenes.map { scene -> "${scene.visualPrompt}. Vertical 9:16 video, continuous natural motion, cinematic camera movement, keep the same main character and visual style." },
+                                targetSeconds,
+                                onUpdate = { message -> Handler(Looper.getMainLooper()).post { aiVideoStatus = message } },
+                                onComplete = { result ->
+                                    Handler(Looper.getMainLooper()).post {
+                                        isGeneratingAiVideo = false
+                                        aiVideoStatus = result.fold(
+                                            onSuccess = { "AI video Galeri'ye kaydedildi: $it" },
+                                            onFailure = { "AI video hatası: " + (it.message ?: "Bilinmeyen hata") }
+                                        )
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     },
                     enabled = !isGeneratingAiVideo,
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF201B3B))
                 ) {
-                    Text(if (isGeneratingAiVideo) "AI video oluşturuluyor..." else "🎬 Gerçek AI hareketli video üret")
+                    Text(if (isGeneratingAiVideo) "AI sahneleri üretiliyor..." else "🎬 $duration gerçek AI video üret (5 sahne)")
                 }
                 if (aiVideoStatus.isNotBlank()) {
                     Text(aiVideoStatus, color = Color(0xFF3D315F), fontSize = 13.sp)
