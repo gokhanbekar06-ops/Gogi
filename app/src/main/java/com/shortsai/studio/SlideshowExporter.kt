@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.media.MediaCodec
+import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
@@ -28,6 +29,7 @@ object SlideshowExporter {
         context: Context,
         scenes: List<VideoFrameSource>,
         durationSeconds: Int,
+        audioUri: Uri? = null,
         onComplete: (Result<Uri>) -> Unit
     ) {
         thread(name = "shorts-mp4-export") {
@@ -38,8 +40,14 @@ object SlideshowExporter {
                 val outputDir = File(context.cacheDir, "shorts-export").apply { mkdirs() }
                 val tempFile = File(outputDir, "shorts-${System.currentTimeMillis()}.mp4")
                 encodeVideo(tempFile, scenes, bitmaps, durationSeconds)
-                val savedUri = saveToGallery(context, tempFile)
-                tempFile.delete()
+                val finalFile = if (audioUri != null) {
+                    File(outputDir, "shorts-audio-${System.currentTimeMillis()}.mp4").also {
+                        muxAudioTrack(context, tempFile, audioUri, it)
+                        tempFile.delete()
+                    }
+                } else tempFile
+                val savedUri = saveToGallery(context, finalFile)
+                finalFile.delete()
                 savedUri
             }
             onComplete(result)
@@ -178,6 +186,61 @@ object SlideshowExporter {
             runCatching { if (muxerStarted) muxer?.stop() }
             runCatching { muxer?.release() }
             bitmaps.forEach { runCatching { it.recycle() } }
+        }
+    }
+
+
+    private fun muxAudioTrack(context: Context, videoFile: File, audioUri: Uri, outputFile: File) {
+        val videoExtractor = MediaExtractor()
+        val audioExtractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+        try {
+            videoExtractor.setDataSource(videoFile.absolutePath)
+            audioExtractor.setDataSource(context, audioUri, null)
+            muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            var videoTrack = -1
+            var audioTrack = -1
+            for (i in 0 until videoExtractor.trackCount) {
+                val format = videoExtractor.getTrackFormat(i)
+                if (format.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true) {
+                    videoExtractor.selectTrack(i)
+                    videoTrack = muxer.addTrack(format)
+                    break
+                }
+            }
+            for (i in 0 until audioExtractor.trackCount) {
+                val format = audioExtractor.getTrackFormat(i)
+                if (format.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    audioExtractor.selectTrack(i)
+                    audioTrack = muxer.addTrack(format)
+                    break
+                }
+            }
+            check(videoTrack >= 0) { "Videonun görüntü kanalı bulunamadı." }
+            check(audioTrack >= 0) { "Seçilen dosyada ses kanalı bulunamadı." }
+            muxer.start()
+            val buffer = java.nio.ByteBuffer.allocate(2 * 1024 * 1024)
+            val info = MediaCodec.BufferInfo()
+            fun copySamples(extractor: MediaExtractor, destinationTrack: Int) {
+                while (true) {
+                    buffer.clear()
+                    val size = extractor.readSampleData(buffer, 0)
+                    if (size < 0) break
+                    info.offset = 0
+                    info.size = size
+                    info.presentationTimeUs = extractor.sampleTime
+                    info.flags = extractor.sampleFlags
+                    muxer!!.writeSampleData(destinationTrack, buffer, info)
+                    extractor.advance()
+                }
+            }
+            copySamples(videoExtractor, videoTrack)
+            copySamples(audioExtractor, audioTrack)
+        } finally {
+            runCatching { muxer?.stop() }
+            runCatching { muxer?.release() }
+            runCatching { videoExtractor.release() }
+            runCatching { audioExtractor.release() }
         }
     }
 
