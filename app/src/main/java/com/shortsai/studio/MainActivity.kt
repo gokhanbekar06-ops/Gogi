@@ -130,10 +130,14 @@ fun StudioScreen() {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("SHORTS AI STUDIO", fontWeight = FontWeight.Black) },
+                    title = { Text("SHORTS AI STUDIO", color = Color(0xFF211D2B), fontWeight = FontWeight.Black) },
                     actions = {
                         Text("9:16", modifier = Modifier.padding(end = 18.dp), color = Color(0xFF7657F6), fontWeight = FontWeight.Bold)
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFFF7F5FC),
+                        titleContentColor = Color(0xFF211D2B)
+                    )
                 )
             },
             containerColor = Color(0xFFF7F5FC)
@@ -224,7 +228,16 @@ fun StudioScreen() {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     minLines = 2,
-                                    textStyle = TextStyle(fontSize = 14.sp, lineHeight = 19.sp)
+                                    textStyle = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, color = Color(0xFF211D2B)),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF211D2B),
+                                        unfocusedTextColor = Color(0xFF211D2B),
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White,
+                                        cursorColor = Color(0xFF7657F6),
+                                        focusedBorderColor = Color(0xFF7657F6),
+                                        unfocusedBorderColor = Color(0xFFAAA3B5)
+                                    )
                                 )
                                 Text("Ekran altyazısı", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 OutlinedTextField(
@@ -234,7 +247,16 @@ fun StudioScreen() {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     minLines = 1,
-                                    textStyle = TextStyle(fontSize = 14.sp, lineHeight = 18.sp)
+                                    textStyle = TextStyle(fontSize = 14.sp, lineHeight = 18.sp, color = Color(0xFF211D2B)),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF211D2B),
+                                        unfocusedTextColor = Color(0xFF211D2B),
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White,
+                                        cursorColor = Color(0xFF7657F6),
+                                        focusedBorderColor = Color(0xFF7657F6),
+                                        unfocusedBorderColor = Color(0xFFAAA3B5)
+                                    )
                                 )
                                 Text("Görsel üretim promptu", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Text(scene.visualPrompt, fontSize = 12.sp, color = Color.DarkGray, lineHeight = 16.sp)
