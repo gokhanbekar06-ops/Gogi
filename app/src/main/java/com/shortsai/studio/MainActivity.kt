@@ -1,6 +1,7 @@
 package com.shortsai.studio
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
@@ -15,18 +16,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import coil.compose.AsyncImage
 
 private data class StoryScene(
     val title: String,
     val narration: String,
     val visualPrompt: String,
-    val subtitle: String
+    val subtitle: String,
+    val imageUrl: String = ""
 )
 
 class MainActivity : ComponentActivity() {
@@ -213,6 +217,18 @@ fun StudioScreen() {
                     Text(storyTitle, color = Color(0xFF7657F6), fontWeight = FontWeight.Bold)
                     Text("Tarz: $style  •  Süre: $duration  •  Dikey 9:16", color = Color.Gray)
 
+                    Button(
+                        onClick = {
+                            scenes = scenes.map { scene ->
+                                val imagePrompt = "${scene.visualPrompt}. Vertical portrait 9:16 composition, no text, consistent main character."
+                                val url = "https://image.pollinations.ai/prompt/${Uri.encode(imagePrompt)}?width=576&height=1024&model=flux&nologo=true"
+                                scene.copy(imageUrl = url)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF201B3B))
+                    ) { Text("✦ 5 sahnenin görsellerini üret") }
+
                     scenes.forEachIndexed { index, scene ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -260,6 +276,21 @@ fun StudioScreen() {
                                 )
                                 Text("Görsel üretim promptu", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Text(scene.visualPrompt, fontSize = 12.sp, color = Color.DarkGray, lineHeight = 16.sp)
+                                if (scene.imageUrl.isNotBlank()) {
+                                    AsyncImage(
+                                        model = scene.imageUrl,
+                                        contentDescription = "Sahne ${index + 1} yapay zekâ görseli",
+                                        modifier = Modifier.fillMaxWidth().height(320.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val imagePrompt = "${scene.visualPrompt}. Vertical portrait 9:16 composition, no text, consistent main character."
+                                        val url = "https://image.pollinations.ai/prompt/${Uri.encode(imagePrompt)}?width=576&height=1024&model=flux&nologo=true"
+                                        scenes = scenes.toMutableList().also { it[index] = scene.copy(imageUrl = url) }
+                                    }
+                                ) { Text(if (scene.imageUrl.isBlank()) "✦ Bu sahnenin görselini üret" else "↻ Görseli yeniden üret") }
                                 OutlinedButton(onClick = {
                                     tts?.language = Locale("tr", "TR")
                                     tts?.speak(scene.narration, TextToSpeech.QUEUE_FLUSH, null, "scene_$index")
